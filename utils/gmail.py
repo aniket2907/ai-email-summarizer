@@ -27,7 +27,10 @@ def get_access_token():
         data=data,
         timeout=20,
     )
-    response.raise_for_status()
+    if response.status_code != 200:
+        # Print Google’s exact reason (super important for fixing)
+        raise RuntimeError(f"Token endpoint error {response.status_code}: {response.text}")
+
     return response.json()["access_token"]
 
 
@@ -36,7 +39,7 @@ def list_recent_unread_message_ids(access_token, max_results=20):
     Return message IDs for unread emails from the last 24 hours.
     """
     params = {
-        "q": "newer_than:1d is:unread in:inbox",
+        "q": "newer_than:1d is:unread in:inbox category:primary",
         "maxResults": max_results,
     }
 
