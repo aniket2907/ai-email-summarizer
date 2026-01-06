@@ -15,6 +15,8 @@ from utils.gmail import (
     mark_as_read,
 )
 
+from utils.email_sender import send_email
+
 app = FastAPI()
 
 @app.get("/", response_class=PlainTextResponse)
@@ -68,8 +70,7 @@ def run_digest():
 
     # 5) Delivery still skipped for now
     if not skip_delivery:
-        # Resend/Slack sending will be added later
-        pass
+        send_email(summary["subject"], html)
 
     return JSONResponse({
         "ok": True,
