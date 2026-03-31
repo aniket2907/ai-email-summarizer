@@ -13,3 +13,6 @@ __pycache__/
 
 # Vercel
 .vercel/
+
+# Claude Code
+CLAUDE.md
