@@ -16,8 +16,12 @@ from utils.gmail import (
 )
 
 from utils.email_sender import send_email
+from api.ingest import router as ingest_router
+from api.query import router as query_router
 
 app = FastAPI()
+app.include_router(ingest_router)
+app.include_router(query_router)
 
 @app.get("/", response_class=PlainTextResponse)
 def home():

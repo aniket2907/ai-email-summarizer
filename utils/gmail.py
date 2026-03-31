@@ -1,6 +1,7 @@
 # utils/gmail.py
 
 import os
+import base64
 import requests
 
 GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1"
@@ -82,6 +83,78 @@ def get_message_snippet(access_token, message_id):
         "subject": headers.get("Subject", "(no subject)"),
         "snippet": msg.get("snippet", ""),
     }
+
+
+def get_full_message(access_token, message_id):
+    """
+    Fetch full message: headers, decoded body text, and attachment metadata.
+    """
+    response = requests.get(
+        f"{GMAIL_API_BASE}/users/me/messages/{message_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"format": "full"},
+        timeout=20,
+    )
+    response.raise_for_status()
+    msg = response.json()
+
+    headers = {
+        h["name"]: h["value"]
+        for h in msg["payload"].get("headers", [])
+    }
+
+    return {
+        "id": message_id,
+        "from": headers.get("From", ""),
+        "subject": headers.get("Subject", "(no subject)"),
+        "date": headers.get("Date", ""),
+        "body": _extract_body(msg["payload"]),
+        "attachments": _extract_attachment_metadata(msg["payload"]),
+    }
+
+
+def _extract_body(payload: dict) -> str:
+    """Recursively extract plain-text body from a message payload."""
+    if payload.get("mimeType") == "text/plain":
+        data = payload.get("body", {}).get("data", "")
+        if data:
+            return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+
+    for part in payload.get("parts", []):
+        text = _extract_body(part)
+        if text:
+            return text
+
+    return ""
+
+
+def _extract_attachment_metadata(payload: dict) -> list[dict]:
+    """Walk payload parts and collect attachment descriptors."""
+    attachments = []
+    for part in payload.get("parts", []):
+        filename = part.get("filename", "")
+        if filename:
+            body = part.get("body", {})
+            attachments.append({
+                "name": filename,
+                "mime_type": part.get("mimeType", ""),
+                "attachment_id": body.get("attachmentId", ""),
+                "inline_data": body.get("data", ""),  # set for small attachments
+            })
+        else:
+            attachments.extend(_extract_attachment_metadata(part))
+    return attachments
+
+
+def fetch_attachment(access_token, message_id, attachment_id) -> bytes:
+    """Download and decode a Gmail attachment by its attachment ID."""
+    response = requests.get(
+        f"{GMAIL_API_BASE}/users/me/messages/{message_id}/attachments/{attachment_id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    return base64.urlsafe_b64decode(response.json()["data"] + "==")
 
 
 def mark_as_read(access_token, message_ids):

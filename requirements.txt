@@ -1,5 +1,15 @@
-
 fastapi
 uvicorn
 requests
 python-dotenv
+
+# RAG
+langchain
+langchain-openai
+langchain-qdrant
+langchain-text-splitters
+qdrant-client
+
+# Attachment parsing
+pdfplumber
+python-docx
