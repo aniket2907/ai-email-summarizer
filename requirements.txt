@@ -7,8 +7,10 @@ python-dotenv
 langchain
 langchain-openai
 langchain-qdrant
+langchain-community
 langchain-text-splitters
 qdrant-client
+flashrank
 
 # Attachment parsing
 pdfplumber

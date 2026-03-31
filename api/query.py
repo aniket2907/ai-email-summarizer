@@ -10,6 +10,8 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from langchain.retrievers import ContextualCompressionRetriever
+from langchain_community.document_compressors.flashrank_rerank import FlashrankRerank
 
 from utils.embedder import get_vector_store
 
@@ -49,9 +51,14 @@ def query(req: QueryRequest):
     RAG query over stored emails. Accepts conversation history for multi-turn.
     """
     store = get_vector_store()
-    retriever = store.as_retriever(
+    base_retriever = store.as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={"k": 5, "score_threshold": 0.5},
+        search_kwargs={"k": 10, "score_threshold": 0.4},
+    )
+    reranker = FlashrankRerank(top_n=2)
+    retriever = ContextualCompressionRetriever(
+        base_compressor=reranker,
+        base_retriever=base_retriever,
     )
 
     llm = ChatOpenAI(
