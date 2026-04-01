@@ -43,23 +43,35 @@ def get_vector_store() -> QdrantVectorStore:
     )
 
 
+def _already_ingested(client: QdrantClient, email_id: str) -> bool:
+    results, _ = client.scroll(
+        collection_name=COLLECTION_NAME,
+        scroll_filter=Filter(
+            must=[FieldCondition(key="metadata.email_id", match=MatchValue(value=email_id))]
+        ),
+        limit=1,
+        with_payload=False,
+        with_vectors=False,
+    )
+    return len(results) > 0
+
+
 def upsert_documents(documents: list[Document]):
     client = _get_client()
     _ensure_collection(client)
 
-    # Delete existing chunks for each email_id before inserting
-    email_ids = {d.metadata["email_id"] for d in documents}
-    for email_id in email_ids:
-        client.delete(
-            collection_name=COLLECTION_NAME,
-            points_selector=Filter(
-                must=[FieldCondition(key="metadata.email_id", match=MatchValue(value=email_id))]
-            ),
-        )
+    # Skip emails that are already in Qdrant
+    new_docs = [
+        d for d in documents
+        if not _already_ingested(client, d.metadata["email_id"])
+    ]
+
+    if not new_docs:
+        return
 
     store = QdrantVectorStore(
         client=client,
         collection_name=COLLECTION_NAME,
         embedding=_get_embeddings(),
     )
-    store.add_documents(documents)
+    store.add_documents(new_docs)
